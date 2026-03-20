@@ -34,6 +34,24 @@ static uint64_t minpci_read(void *opaque, hwaddr, unsigned size) {
 }
 
 
+static const MemoryRegionOps bar0_mmio_ops {
+	.read = minpci_read,
+	.write = minpci_write
+	.endiannes = DEVICE_NATIVE_ENDIAN,
+
+	/*
+	.valid = {
+		.min_access_size = 4,
+		.max_access_size = 4,
+	},
+	.impl = {
+		.min_access_size = 4,
+		.max_access_size = 4,
+	}
+	*/
+}
+
+
 static void minpci_class_init(ObjectClass *class, const void *data) {
 	DeviceClass *dc = DEVICE_CLASS(class);
 	PCIDeviceClass *k = PCI_DEVICE_CLASS(class);
