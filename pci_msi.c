@@ -1,15 +1,17 @@
-#define BAR_SPACE 0x0
+#define BAR0_SPACE 0x0
+#define PCI_VENDOR_ID_STUB 0x10
+#define PCI_DEVICE_ID_STUB 0x11
 
 struct Minpci_State {
 	PCIDevice parent_dev;
 	MemoryRegion mmio;
 	
-	uint64_t bar0_space;	
+	uint32_t bar0_space;	
 };
 
+DECLARE_INSTANCE_CHECKER(struct Minpci_State, MINPCIDEV, TYPE_PCI_CUSTOM_DEVICE)
 
-
-static void minpci_write(void *opaque, hwaddr addr, uint64_t val, unsigned size) {
+static void minpci_write(void *opaque, hwaddr addr, uint32_t val, unsigned size) {
 	struct Minpci_State *mpci = opaque;
 	
 	if (addr == BAR_SPACE) {
@@ -22,11 +24,11 @@ static void minpci_write(void *opaque, hwaddr addr, uint64_t val, unsigned size)
 	return;
 }
 
-static uint64_t minpci_read(void *opaque, hwaddr, unsigned size) {
+static uint32_t minpci_read(void *opaque, hwaddr addr, unsigned size) {
 	struct Minpci_State *mpci = opaque;
-	uint64_t val = ~0ULL;
+	uint32_t val = ~0ULL;
 	
-	if (addr == BAR_SPACE) {
+	if (addr == BAR0_SPACE) {
 		val = mpci->bar0_space;	
 	}
 
@@ -36,8 +38,8 @@ static uint64_t minpci_read(void *opaque, hwaddr, unsigned size) {
 
 static const MemoryRegionOps bar0_mmio_ops {
 	.read = minpci_read,
-	.write = minpci_write
-	.endiannes = DEVICE_NATIVE_ENDIAN,
+	.write = minpci_write, 
+	.endianness = DEVICE_NATIVE_ENDIAN,
 
 	/*
 	.valid = {
@@ -50,6 +52,22 @@ static const MemoryRegionOps bar0_mmio_ops {
 	}
 	*/
 }
+
+static void minpci_realize(PCIDevice *pdev, Error **errp) {
+	struct Minpci_State *mpci = MINPCIDEV(pdev);
+
+
+	mpci->bar0_space = 80;  // test value
+	
+	memory_region_init_io(&mpci->mmio, OBJECT(mpci) , &bar0_mmio_ops, mpci, "our_register", 4);
+	pci_register_bar(pdev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &mpci->mmio);
+}
+
+static void minpci_uninit(PCIDevice *pdev) {
+	return;
+}
+
+
 
 
 static void minpci_class_init(ObjectClass *class, const void *data) {
@@ -65,4 +83,3 @@ static void minpci_class_init(ObjectClass *class, const void *data) {
 	
 	set_bit(DEVICE_CATEGORY_MISC, dc->categories);
 }
-
