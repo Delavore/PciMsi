@@ -1,6 +1,16 @@
+#include "qemu/osdep.h"
+#include "qemu/units.h"
+#include "hw/pci/pci.h"
+#include "hw/pci/pci_device.h"
+#include "qom/object.h"
+#include "qemu/log.h"
+#include "qemu/module.h"
+
 #define BAR0_SPACE 0x0
 #define PCI_VENDOR_ID_STUB 0x10
 #define PCI_DEVICE_ID_STUB 0x11
+
+#define TYPE_PCI_MINPCI_DEVICE "minpci"
 
 struct Minpci_State {
 	PCIDevice parent_dev;
@@ -9,34 +19,39 @@ struct Minpci_State {
 	uint32_t bar0_space;	
 };
 
-DECLARE_INSTANCE_CHECKER(struct Minpci_State, MINPCIDEV, TYPE_PCI_CUSTOM_DEVICE)
+DECLARE_INSTANCE_CHECKER(struct Minpci_State, MINPCIDEV, TYPE_PCI_MINPCI_DEVICE)
 
-static void minpci_write(void *opaque, hwaddr addr, uint32_t val, unsigned size) {
+static void minpci_write(void *opaque, hwaddr addr, uint64_t val, unsigned size) {
 	struct Minpci_State *mpci = opaque;
 	
-	if (addr == BAR_SPACE) {
+	if (addr == BAR0_SPACE) {
 		mpci->bar0_space = val;
-		pr_info("WRITE");
+
+		// pr_info("WRITE");
+		qemu_log("WRITE\n");
 		return;	
 	}
 	
-	pr_info("INVALID ADDR");
+	// pr_info("INVALID ADDR");
+	qemu_log("INVALID ADDR\n");
 	return;
 }
 
-static uint32_t minpci_read(void *opaque, hwaddr addr, unsigned size) {
+// uint64_t ?
+static uint64_t minpci_read(void *opaque, hwaddr addr, unsigned size) {
 	struct Minpci_State *mpci = opaque;
-	uint32_t val = ~0ULL;
+	uint64_t val = ~0ULL;
 	
 	if (addr == BAR0_SPACE) {
 		val = mpci->bar0_space;	
+		qemu_log("VALID READ\n");
 	}
 
 	return val;
 }
 
 
-static const MemoryRegionOps bar0_mmio_ops {
+static const MemoryRegionOps bar0_mmio_ops = {
 	.read = minpci_read,
 	.write = minpci_write, 
 	.endianness = DEVICE_NATIVE_ENDIAN,
@@ -51,7 +66,7 @@ static const MemoryRegionOps bar0_mmio_ops {
 		.max_access_size = 4,
 	}
 	*/
-}
+};
 
 static void minpci_realize(PCIDevice *pdev, Error **errp) {
 	struct Minpci_State *mpci = MINPCIDEV(pdev);
@@ -67,8 +82,9 @@ static void minpci_uninit(PCIDevice *pdev) {
 	return;
 }
 
-
-
+static void minpci_instance_init(Object *obj) {
+	return;
+}
 
 static void minpci_class_init(ObjectClass *class, const void *data) {
 	DeviceClass *dc = DEVICE_CLASS(class);
@@ -79,7 +95,28 @@ static void minpci_class_init(ObjectClass *class, const void *data) {
 	k->vendor_id = PCI_VENDOR_ID_STUB;
 	k->device_id = PCI_DEVICE_ID_STUB;
 	k->revision = 0x00;
-	k->class_id = PCI_CLASS_OTHER;
+	k->class_id = PCI_CLASS_OTHERS;
 	
 	set_bit(DEVICE_CATEGORY_MISC, dc->categories);
 }
+
+static InterfaceInfo interfaces[] = {
+	{ INTERFACE_CONVENTIONAL_PCI_DEVICE },
+	{ },
+};
+
+static const TypeInfo minpci_type = {
+		.name = TYPE_PCI_MINPCI_DEVICE, 
+		.parent = TYPE_PCI_DEVICE,
+		.instance_size = sizeof(struct Minpci_State),
+		// .instance_init = minpci_class_init
+		.class_init = minpci_class_init,
+		.instance_init = minpci_instance_init,
+		.interfaces = interfaces,
+};
+
+static void minpci_register_type(void) {
+	type_register_static(&minpci_type);
+}
+
+type_init(minpci_register_type);
